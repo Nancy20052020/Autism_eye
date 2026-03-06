@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Results - Autism Detection</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            font-weight: 600;
+        }
+
+        .result-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.4em;
+        }
+
+        .high-risk {
+            background-color: #dc3545;
+        }
+
+        .moderate-risk {
+            background-color: #fd7e14;
+        }
+
+        .low-risk {
+            background-color: #28a745;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .stat-card {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2.2em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-weight: 500;
+            font-size: 1em;
+        }
+
+        .rounds-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .round-card {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .round-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+            text-align: center;
+        }
+
+        .round-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .round-stat {
+            text-align: center;
+            padding: 15px;
+            background-color: #f7fafc;
+            border-radius: 6px;
+        }
+
+        .round-stat-value {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #5a67d8;
+        }
+
+        .round-stat-label {
+            color: #718096;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        .recommendations {
+            background-color: #f7fafc;
+            padding: 30px;
+            border-radius: 8px;
+            margin: 40px 0;
+            border-left: 4px solid #5a67d8;
+        }
+
+        .recommendations h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .recommendations ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .recommendations li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #4a5568;
+            line-height: 1.5;
+        }
+
+        .recommendations li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #5a67d8;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .technical-info {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        .technical-info h4 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .progress-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(#5a67d8 0deg, #5a67d8 var(--progress), #e2e8f0 var(--progress), #e2e8f0 360deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+
+        .progress-circle::before {
+            content: '';
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: white;
+            position: absolute;
+        }
+
+        .progress-text {
+            position: relative;
+            z-index: 1;
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #5a67d8;
+        }
+
+        .action-buttons {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #5a67d8;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .disclaimer {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .rounds-comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Assessment Results</h1>
+
+        <div class="result-header {{ result_class }}">
+            <h2>{{ final_result }}</h2>
+            <div class="progress-circle" style="--progress: {{ probability * 3.6 }}deg;">
+                <div class="progress-text">{{ probability }}%</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ confidence }}%</div>
+                <div class="stat-label">Model Confidence</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ accuracy }}%</div>
+                <div class="stat-label">Model Accuracy</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ probability }}%</div>
+                <div class="stat-label">Probability Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{% if model_used %}AI{% else %}Rule{% endif %}</div>
+                <div class="stat-label">Analysis Method</div>
+            </div>
+        </div>
+
+        <div class="rounds-comparison">
+            <div class="round-card">
+                <div class="round-title">Round 1 Analysis</div>
+                <div class="round-stats">
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ round1.image1_time|round(1) }}s</div>
+                        <div class="round-stat-label">Image A Time</div>
+                    </div>
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ round1.image2_time|round(1) }}s</div>
+                        <div class="round-stat-label">Image B Time</div>
+                    </div>
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ round1.result|title }}</div>
+                        <div class="round-stat-label">Prediction</div>
+                    </div>
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ (round1.confidence * 100)|round(1) }}%</div>
+                        <div class="round-stat-label">Confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="round-card">
+                <div class="round-title">Round 2 Analysis</div>
+                <div class="round-stats">
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ round2.image1_time|round(1) }}s</div>
+                        <div class="round-stat-label">Image A Time</div>
+                    </div>
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ round2.image2_time|round(1) }}s</div>
+                        <div class="round-stat-label">Image B Time</div>
+                    </div>
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ round2.result|title }}</div>
+                        <div class="round-stat-label">Prediction</div>
+                    </div>
+                    <div class="round-stat">
+                        <div class="round-stat-value">{{ (round2.confidence * 100)|round(1) }}%</div>
+                        <div class="round-stat-label">Confidence</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendations">
+            <h3>Recommendations</h3>
+            <ul>
+                {% for recommendation in recommendations %}
+                <li>{{ recommendation }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="technical-info">
+            <h4>Technical Information</h4>
+            <p><strong>Analysis Method:</strong> {% if model_used %}Deep Learning Neural Network{% else %}Rule-based Classification System{% endif %}</p>
+            <p><strong>Assessment Type:</strong> Eye Tracking Gaze Pattern Analysis</p>
+            <p><strong>Data Points:</strong> Gaze duration, focus ratios, pattern consistency</p>
+            <p><strong>Rounds Completed:</strong> 2/2</p>
+            {% if model_used %}
+            <p><strong>Model:</strong> Trained on autism spectrum disorder eye tracking datasets</p>
+            {% endif %}
+
+            <div class="disclaimer">
+                <strong>Important Disclaimer:</strong> This tool provides preliminary screening results and should not be used as a definitive diagnostic tool. Please consult with healthcare professionals for proper evaluation and diagnosis.
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <a href="/" class="btn btn-primary">Return Home</a>
+            <a href="/round1" class="btn btn-secondary">Retake Assessment</a>
+        </div>
+    </div>
+</body>
+</html>
