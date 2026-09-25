@@ -8,16 +8,19 @@ from flask_wtf import FlaskForm
 from flask_wtf.csrf import CSRFProtect
 from wtforms import StringField, PasswordField, EmailField
 from wtforms.validators import DataRequired, Email
-import cv2
 import os
 import time
+import base64
+import io
+import urllib.request
 from datetime import datetime
 from flask import send_file
 import numpy as np
 import json
 import logging
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=BASE_DIR, static_folder=os.path.join(BASE_DIR, "static"))
 app.secret_key = 'your_secret_key'
 
 csrf = CSRFProtect(app)
@@ -43,13 +46,55 @@ app.config['MAIL_USE_SSL'] = False
 mail = Mail(app)
 s = URLSafeTimedSerializer(app.secret_key)
 
-MODEL_PATH = r"C:/Users/nancy/PycharmProjects/Autism/.venv/autism_eye_model.h5"
-try:
+MODEL_FILE_ID = "1dic8I4MqvzRYAo0kbU5nTbKX4ufMBcfz"
+MODEL_URL = os.environ.get(
+    "MODEL_URL",
+    f"https://drive.usercontent.google.com/download?id={MODEL_FILE_ID}&export=download&confirm=t",
+)
+MODEL_PATH = os.environ.get("MODEL_PATH", os.path.join("/tmp", "cbo_model.h5"))
+
+
+def download_model(url, destination):
+    if os.path.exists(destination) and os.path.getsize(destination) > 1_000_000:
+        return destination
+    logger.info("Downloading model.h5")
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(request, timeout=180) as response:
+        payload = response.read()
+    if payload[:1] == b"<" or b"<html" in payload[:200].lower():
+        raise RuntimeError("Model download returned a web page instead of the .h5 file")
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    with open(destination, "wb") as model_file:
+        model_file.write(payload)
+    return destination
+
+
+def load_detection_model():
     import tensorflow as tf
     from tensorflow import keras
+    from keras.src.layers.core.lambda_layer import Lambda
 
-    model = keras.models.load_model(MODEL_PATH)
-    logger.info("Autism detection model loaded successfully!")
+    original_from_config = Lambda.from_config.__func__
+
+    def expand_time(tensor):
+        return tf.expand_dims(tensor, axis=1)
+
+    def from_config(cls, config):
+        if config.get("name") == "lambda_9":
+            return Lambda(expand_time, name="lambda_9")
+        return original_from_config(cls, config)
+
+    Lambda.from_config = classmethod(from_config)
+    path = download_model(MODEL_URL, MODEL_PATH)
+    try:
+        return keras.models.load_model(path, compile=False, safe_mode=False)
+    finally:
+        Lambda.from_config = classmethod(original_from_config)
+
+
+try:
+    model = load_detection_model()
+    logger.info("Autism detection model loaded successfully")
     MODEL_LOADED = True
 except Exception as e:
     logger.error(f"Failed to load model: {e}")
@@ -171,30 +216,42 @@ def predict_autism_simple(round1_data, round2_data):
         return "non-autistic", 0.5, 0.3, 0.65
 
 
-def predict_autism_with_model(features, round1_data, round2_data):
+def decode_face_image(image_base64):
+    from PIL import Image
 
-    if not MODEL_LOADED or model is None or features is None:
-        return predict_autism_simple(round1_data, round2_data)
+    if not image_base64:
+        return None
+    if "," in image_base64:
+        image_base64 = image_base64.split(",", 1)[1]
+    raw = base64.b64decode(image_base64)
+    image = Image.open(io.BytesIO(raw)).convert("RGB")
+    image = image.resize((224, 224))
+    return np.asarray(image, dtype=np.float32)
 
-    try:
-        prediction_prob = model.predict(features, verbose=0)[0][0]
 
-        if prediction_prob > 0.5:
-            prediction = "autistic"
-            probability = float(prediction_prob)
-        else:
-            prediction = "non-autistic"
-            probability = 1.0 - float(prediction_prob)
+def predict_face(image_array):
+    probabilities = model.predict(image_array.reshape(1, 224, 224, 3), verbose=0)[0]
+    autistic_probability = float(probabilities[0])
+    if autistic_probability >= 0.5:
+        prediction = "autistic"
+        probability = autistic_probability
+    else:
+        prediction = "non-autistic"
+        probability = 1.0 - autistic_probability
+    confidence = float(min(abs(autistic_probability - 0.5) * 2, 0.99))
+    return prediction, probability, confidence
 
-        confidence = abs(prediction_prob - 0.5) * 2
-        confidence = min(confidence, 0.95)
-        accuracy = 0.92
 
-        return prediction, probability, float(confidence), accuracy
+def predict_autism_with_model(features, round1_data, round2_data, face_image=None):
 
-    except Exception as e:
-        logger.error(f"Error with model prediction: {e}")
-        return predict_autism_simple(round1_data, round2_data)
+    if MODEL_LOADED and model is not None and face_image is not None:
+        try:
+            prediction, probability, confidence = predict_face(face_image)
+            return prediction, probability, confidence, None
+        except Exception as e:
+            logger.error(f"Error with model prediction: {e}")
+
+    return predict_autism_simple(round1_data, round2_data)
 
 
 def save_result_to_db(username, round_data, final_result, model_confidence, model_accuracy):
@@ -277,6 +334,7 @@ def submit_times():
         round_name = data.get('round')
         image1_time = float(data.get('image1_time', 0))
         image2_time = float(data.get('image2_time', 0))
+        face_image = decode_face_image(data.get('face_image'))
 
         round_result = {
             "image1_time": image1_time,
@@ -286,12 +344,12 @@ def submit_times():
         if round_name == 'round2' and 'round1' in results:
             features = preprocess_eye_data(image1_time, image2_time)
             prediction, probability, confidence, accuracy = predict_autism_with_model(
-                features, results['round1'], round_result
+                features, results['round1'], round_result, face_image
             )
         else:
             features = preprocess_eye_data(image1_time, image2_time)
             prediction, probability, confidence, accuracy = predict_autism_with_model(
-                features, round_result, {}
+                features, round_result, {}, face_image
             )
 
         round_result.update({
@@ -314,7 +372,7 @@ def submit_times():
             "result": prediction,
             "probability": round(probability * 100, 2),
             "confidence": round(confidence * 100, 2),
-            "accuracy": round(accuracy * 100, 2),
+            "accuracy": round((confidence if accuracy is None else accuracy) * 100, 2),
             "model_used": MODEL_LOADED,
             "processing_time": round(time.time() % 1, 3)
         })
@@ -346,10 +404,20 @@ def result():
             results['round1']['image1_time'],
             results['round1']['image2_time']
         )
-
-        final_prediction, final_probability, final_confidence, final_accuracy = predict_autism_with_model(
-            combined_features, results['round1'], results['round2']
-        )
+        round_probabilities = [
+            results[name].get('probability')
+            for name in ('round1', 'round2')
+            if results[name].get('result')
+        ]
+        if MODEL_LOADED and round_probabilities:
+            final_probability = float(np.mean(round_probabilities))
+            final_prediction = "autistic" if final_probability >= 0.5 else "non-autistic"
+            final_confidence = float(min(abs(final_probability - 0.5) * 2, 0.99))
+            final_accuracy = None
+        else:
+            final_prediction, final_probability, final_confidence, final_accuracy = predict_autism_with_model(
+                combined_features, results['round1'], results['round2']
+            )
 
         if final_probability > 0.7:
             final_result = "High Possibility of Autism"
@@ -369,7 +437,7 @@ def result():
             'result_class': result_class,
             'probability': round(final_probability * 100, 2),
             'confidence': round(final_confidence * 100, 2),
-            'accuracy': round(final_accuracy * 100, 2),
+            'accuracy': round((final_confidence if final_accuracy is None else final_accuracy) * 100, 2),
             'round1': results['round1'],
             'round2': results['round2'],
             'model_used': MODEL_LOADED,

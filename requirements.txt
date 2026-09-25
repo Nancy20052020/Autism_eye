@@ -1,0 +1,10 @@
+flask
+flask-mail
+flask-wtf
+wtforms
+email-validator
+mysql-connector-python
+itsdangerous
+pillow
+numpy
+tensorflow

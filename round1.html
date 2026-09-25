@@ -464,6 +464,19 @@
             document.querySelector('.progress-fill').style.width = progress + '%';
         }
 
+        function captureFace() {
+            const video = document.getElementById('webgazerVideoFeed');
+            if (!video || !video.videoWidth) return null;
+            const canvas = document.createElement('canvas');
+            canvas.width = 224;
+            canvas.height = 224;
+            const side = Math.min(video.videoWidth, video.videoHeight);
+            const sx = (video.videoWidth - side) / 2;
+            const sy = (video.videoHeight - side) / 2;
+            canvas.getContext('2d').drawImage(video, sx, sy, side, side, 0, 0, 224, 224);
+            return canvas.toDataURL('image/jpeg', 0.85);
+        }
+
         function stopEyeTracking() {
             isTracking = false;
             isSetup = false;
@@ -485,6 +498,7 @@
             document.querySelector('.loading').style.display = 'block';
             document.querySelector('.submit-btn').disabled = true;
 
+            const faceImage = captureFace();
             stopEyeTracking();
 
             const totalGazePoints = gazePoints.length;
@@ -498,7 +512,8 @@
                 total_gaze_points: totalGazePoints,
                 avg_gaze_x: avgGazeX,
                 avg_gaze_y: avgGazeY,
-                session_duration: (Date.now() - startTime) / 1000
+                session_duration: (Date.now() - startTime) / 1000,
+                face_image: faceImage
             };
 
             fetch('/submit_times', {
