@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Round 1 - Autism Detection</title>
+    <title>Round 2 - Autism Detection</title>
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     <style>
         body {
@@ -39,31 +39,6 @@
             background-color: #f1f3f4;
             border-radius: 8px;
             border-left: 4px solid #5a67d8;
-        }
-        
-        .calibration-notice {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        .calibration-btn {
-            background-color: #5a67d8;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 10px;
-            font-size: 1em;
-            transition: background-color 0.2s;
-        }
-        
-        .calibration-btn:hover {
-            background-color: #4c51bf;
         }
         
         .images-container {
@@ -244,6 +219,17 @@
             100% { transform: rotate(360deg); }
         }
         
+        .round-badge {
+            display: inline-block;
+            background-color: #5a67d8;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 16px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        
         .tracking-status {
             position: fixed;
             top: 15px;
@@ -277,7 +263,7 @@
         .progress-fill {
             height: 100%;
             background-color: #5a67d8;
-            width: 0%;
+            width: 100%;
             transition: width 0.3s ease;
         }
     </style>
@@ -286,12 +272,11 @@
         let startTime = Date.now();
         let gazePoints = [];
         let isTracking = false;
-        let isCalibrated = false;
         let lastGazeUpdate = 0;
         
         function isGazeOnElement(x, y, element) {
             const rect = element.getBoundingClientRect();
-            const margin = 25;
+            const margin = 30; // Increased margin for better detection
             return x >= (rect.left - margin) && 
                    x <= (rect.right + margin) && 
                    y >= (rect.top - margin) && 
@@ -299,39 +284,47 @@
         }
 
         function startEyeTracking() {
-            console.log("Starting eye tracking...");
+            console.log("Starting Round 2 eye tracking...");
             
-            document.getElementById('calibration-notice').style.display = 'block';
-            
-            webgazer.setGazeListener((data, timestamp) => {
-                if (data && isTracking && isCalibrated) {
-                    const x = data.x;
-                    const y = data.y;
-                    
-                    lastGazeUpdate = Date.now();
-                    updateTrackingStatus(true);
+            webgazer.setRegression('ridge')
+                .setTracker('clmtrackr')
+                .setGazeListener((data, timestamp) => {
+                    if (data && isTracking) {
+                        const x = data.x;
+                        const y = data.y;
+                        
+                        // Filter out bad data
+                        if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
+                            return;
+                        }
+                        
+                        lastGazeUpdate = Date.now();
+                        updateTrackingStatus(true);
 
-                    gazePoints.push({x, y, timestamp});
+                        gazePoints.push({x, y, timestamp});
 
-                    const image1 = document.getElementById("image1");
-                    const image2 = document.getElementById("image2");
-                    
-                    document.querySelector('#image1-wrapper .gaze-indicator').classList.remove('active');
-                    document.querySelector('#image2-wrapper .gaze-indicator').classList.remove('active');
+                        const image1 = document.getElementById("image1");
+                        const image2 = document.getElementById("image2");
+                        
+                        // Reset gaze indicators
+                        document.querySelector('#image1-wrapper .gaze-indicator').classList.remove('active');
+                        document.querySelector('#image2-wrapper .gaze-indicator').classList.remove('active');
 
-                    if (isGazeOnElement(x, y, image1)) {
-                        imageTimers.image1 += 0.1;
-                        document.querySelector('#image1-wrapper .gaze-indicator').classList.add('active');
-                        updateStats();
+                        // Check gaze on images
+                        if (isGazeOnElement(x, y, image1)) {
+                            imageTimers.image1 += 0.1;
+                            document.querySelector('#image1-wrapper .gaze-indicator').classList.add('active');
+                            updateStats();
+                        }
+
+                        if (isGazeOnElement(x, y, image2)) {
+                            imageTimers.image2 += 0.1;
+                            document.querySelector('#image2-wrapper .gaze-indicator').classList.add('active');
+                            updateStats();
+                        }
                     }
-
-                    if (isGazeOnElement(x, y, image2)) {
-                        imageTimers.image2 += 0.1;
-                        document.querySelector('#image2-wrapper .gaze-indicator').classList.add('active');
-                        updateStats();
-                    }
-                }
-            }).begin();
+                })
+                .begin();
 
             setTimeout(() => {
                 const webgazerVideoFeed = document.getElementById("webgazerVideoFeed");
@@ -339,116 +332,44 @@
                     webgazerVideoFeed.style.position = "fixed";
                     webgazerVideoFeed.style.top = "60px";
                     webgazerVideoFeed.style.right = "15px";
-                    webgazerVideoFeed.style.width = "180px";
-                    webgazerVideoFeed.style.height = "135px";
+                    webgazerVideoFeed.style.width = "200px";
+                    webgazerVideoFeed.style.height = "150px";
                     webgazerVideoFeed.style.zIndex = "1000";
                     webgazerVideoFeed.style.borderRadius = "8px";
                     webgazerVideoFeed.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
                     webgazerVideoFeed.style.border = "2px solid #5a67d8";
                 }
-            }, 2000);
-
-            isTracking = true;
-        }
-
-        function performCalibration() {
-            console.log("Starting calibration...");
-            
-            document.getElementById('calibration-notice').style.display = 'none';
-            
-            const calibrationPoints = [
-                {x: '10%', y: '10%'}, {x: '50%', y: '10%'}, {x: '90%', y: '10%'},
-                {x: '10%', y: '50%'}, {x: '50%', y: '50%'}, {x: '90%', y: '50%'},
-                {x: '10%', y: '90%'}, {x: '50%', y: '90%'}, {x: '90%', y: '90%'}
-            ];
-            
-            let currentPoint = 0;
-            const calibrationDiv = document.createElement('div');
-            calibrationDiv.id = 'calibration-overlay';
-            calibrationDiv.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                background: rgba(0,0,0,0.85);
-                z-index: 10000;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-size: 1.3em;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            `;
-            
-            const pointDiv = document.createElement('div');
-            pointDiv.style.cssText = `
-                position: absolute;
-                width: 18px;
-                height: 18px;
-                background: #e53e3e;
-                border-radius: 50%;
-                cursor: pointer;
-                box-shadow: 0 0 20px rgba(229, 62, 62, 0.8);
-                animation: pulse 1s infinite;
-            `;
-            
-            const instructionDiv = document.createElement('div');
-            instructionDiv.textContent = 'Look at the red dot and click it. Point 1 of 9';
-            instructionDiv.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                text-align: center;
-                z-index: 10001;
-                background: rgba(0,0,0,0.8);
-                padding: 20px;
-                border-radius: 8px;
-            `;
-            
-            calibrationDiv.appendChild(pointDiv);
-            calibrationDiv.appendChild(instructionDiv);
-            document.body.appendChild(calibrationDiv);
-            
-            function showNextPoint() {
-                if (currentPoint < calibrationPoints.length) {
-                    const point = calibrationPoints[currentPoint];
-                    pointDiv.style.left = point.x;
-                    pointDiv.style.top = point.y;
-                    instructionDiv.textContent = `Look at the red dot and click it. Point ${currentPoint + 1} of ${calibrationPoints.length}`;
+                
+                // Auto-enable tracking for round 2 (no setup needed)
+                isTracking = true;
+                updateTrackingStatus(true);
+                document.querySelector('.submit-btn').disabled = false;
+                
+                // Auto-calibrate with some points
+                setTimeout(() => {
+                    const points = [
+                        {x: window.innerWidth * 0.3, y: window.innerHeight * 0.3},
+                        {x: window.innerWidth * 0.7, y: window.innerHeight * 0.3},
+                        {x: window.innerWidth * 0.5, y: window.innerHeight * 0.6}
+                    ];
                     
-                    pointDiv.onclick = () => {
-                        webgazer.watchListener(pointDiv, true);
-                        currentPoint++;
-                        
-                        if (currentPoint < calibrationPoints.length) {
-                            setTimeout(showNextPoint, 500);
-                        } else {
-                            document.body.removeChild(calibrationDiv);
-                            isCalibrated = true;
-                            updateTrackingStatus(true);
-                            document.querySelector('.submit-btn').disabled = false;
-                        }
-                    };
-                } else {
-                    document.body.removeChild(calibrationDiv);
-                    isCalibrated = true;
-                    updateTrackingStatus(true);
-                }
-            }
-            
-            showNextPoint();
+                    points.forEach((point, index) => {
+                        setTimeout(() => {
+                            if (webgazer.getTracker()) {
+                                webgazer.recordScreenPosition(point.x, point.y, 'click');
+                            }
+                        }, index * 500);
+                    });
+                }, 1000);
+                
+            }, 2000);
         }
 
         function updateTrackingStatus(active) {
             const statusDiv = document.querySelector('.tracking-status');
-            if (active && isCalibrated) {
-                statusDiv.textContent = 'Eye Tracking: ACTIVE';
+            if (active && isTracking) {
+                statusDiv.textContent = 'Eye Tracking: ACTIVE (Round 2)';
                 statusDiv.className = 'tracking-status status-active';
-            } else if (!isCalibrated) {
-                statusDiv.textContent = 'Please Calibrate First';
-                statusDiv.className = 'tracking-status status-inactive';
             } else {
                 statusDiv.textContent = 'Eye Tracking: INACTIVE';
                 statusDiv.className = 'tracking-status status-inactive';
@@ -469,9 +390,6 @@
             
             const elapsedTime = (Date.now() - startTime) / 1000;
             document.getElementById('elapsed-time').textContent = elapsedTime.toFixed(1) + 's';
-            
-            const progress = Math.min((elapsedTime / 60) * 100, 100);
-            document.querySelector('.progress-fill').style.width = progress + '%';
         }
 
         function stopEyeTracking() {
@@ -481,12 +399,7 @@
         }
 
         function submitTimes() {
-            if (!isCalibrated) {
-                alert('Please calibrate the eye tracking first.');
-                return;
-            }
-            
-            if (imageTimers.image1 < 0.5 && imageTimers.image2 < 0.5) {
+            if (imageTimers.image1 < 1 && imageTimers.image2 < 1) {
                 alert('Please look at the images for a bit longer before submitting.');
                 return;
             }
@@ -501,7 +414,7 @@
             const avgGazeY = totalGazePoints > 0 ? gazePoints.reduce((sum, p) => sum + p.y, 0) / totalGazePoints : 0;
             
             const requestData = {
-                round: "round1",
+                round: "round2",
                 image1_time: parseFloat(imageTimers.image1.toFixed(2)),
                 image2_time: parseFloat(imageTimers.image2.toFixed(2)),
                 total_gaze_points: totalGazePoints,
@@ -520,7 +433,7 @@
                   
                   const metricsDiv = document.getElementById('metrics-display');
                   metricsDiv.innerHTML = `
-                      <h3>Round 1 Analysis Complete</h3>
+                      <h3>Round 2 Analysis Complete</h3>
                       <div class="stats-container">
                           <div class="stat-card">
                               <div class="stat-value">${data.result}</div>
@@ -542,13 +455,14 @@
                       <p><strong>AI Model:</strong> ${data.model_used ? 'Deep Learning Model' : 'Rule-based System'}</p>
                       <p><strong>Processing Time:</strong> ${data.processing_time}s</p>
                       <div class="instructions">
-                          <p>Round 1 completed successfully. Proceeding to Round 2...</p>
+                          <h4>Assessment Complete</h4>
+                          <p>Both rounds completed. Generating comprehensive final results...</p>
                       </div>
                   `;
                   metricsDiv.style.display = 'block';
                   
                   setTimeout(() => {
-                      window.location.href = '/round2';
+                      window.location.href = '/result';
                   }, 4000);
               })
               .catch(error => {
@@ -562,10 +476,10 @@
         setInterval(updateStats, 1000);
         
         setInterval(() => {
-            if (Date.now() - lastGazeUpdate > 3000 && isTracking) {
+            if (Date.now() - lastGazeUpdate > 5000 && isTracking) {
                 updateTrackingStatus(false);
             }
-        }, 1000);
+        }, 2000);
 
         window.onload = () => {
             startEyeTracking();
@@ -578,29 +492,24 @@
     </script>
 </head>
 <body>
-    <div class="tracking-status">Initializing...</div>
+    <div class="tracking-status">Initializing Round 2...</div>
     
     <div class="container">
-        <h1>Autism Detection - Round 1</h1>
+        <div class="round-badge">Round 2 of 2</div>
+        <h1>Autism Detection - Round 2</h1>
         
         <div class="round-info">
-            <h3>Eye Tracking Assessment</h3>
-            <p>Look at the images naturally. The system will analyze your gaze patterns to provide insights.</p>
-        </div>
-        
-        <div id="calibration-notice" class="calibration-notice">
-            <h4>Eye Tracking Calibration Required</h4>
-            <p>For accurate results, please calibrate the eye tracking system first.</p>
-            <button class="calibration-btn" onclick="performCalibration()">Start Calibration</button>
+            <h3>Final Eye Tracking Assessment</h3>
+            <p>Eye tracking will start automatically. No additional setup required.</p>
         </div>
 
         <div class="instructions">
             <h4>Instructions:</h4>
             <ul>
-                <li>Click "Start Calibration" and follow the red dots</li>
-                <li>Keep your head steady and face the screen</li>
-                <li>Look at both images naturally after calibration</li>
+                <li>Eye tracking will resume automatically from Round 1</li>
+                <li>Look at both images naturally</li>
                 <li>Small red dots will indicate where you're looking</li>
+                <li>This is the final round - take your time</li>
             </ul>
         </div>
 
@@ -610,12 +519,12 @@
 
         <div class="images-container">
             <div id="image1-wrapper" class="image-wrapper">
-                <img id="image1" src="static/pic5.jpg" alt="Image 1">
+                <img id="image1" src="/static/pic6.jpg" alt="Image 1">
                 <div class="image-label">Image A</div>
                 <div class="gaze-indicator"></div>
             </div>
             <div id="image2-wrapper" class="image-wrapper">
-                <img id="image2" src="static/pic3.jpg" alt="Image 2">
+                <img id="image2" src="/static/pic4.jpg" alt="Image 2">
                 <div class="image-label">Image B</div>
                 <div class="gaze-indicator"></div>
             </div>
@@ -645,13 +554,13 @@
         </div>
 
         <div class="controls">
-            <button class="submit-btn" onclick="submitTimes()" disabled>Analyze Gaze Patterns</button>
-            <p style="color: #718096; margin-top: 10px; font-size: 0.9em;">Button will activate after calibration</p>
+            <button class="submit-btn" onclick="submitTimes()" disabled>Complete Assessment</button>
+            <p style="color: #718096; margin-top: 10px; font-size: 0.9em;">Button will activate when tracking starts</p>
         </div>
 
         <div class="loading">
             <div class="spinner"></div>
-            <p>Analyzing gaze patterns...</p>
+            <p>Completing final analysis...</p>
         </div>
 
         <div id="metrics-display" class="metrics-display">

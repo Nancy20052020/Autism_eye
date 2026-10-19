@@ -41,16 +41,16 @@
             border-left: 4px solid #5a67d8;
         }
         
-        .setup-notice {
-            background-color: #e3f2fd;
-            border: 1px solid #90caf9;
+        .calibration-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
             border-radius: 8px;
             padding: 20px;
             margin: 20px 0;
             text-align: center;
         }
         
-        .setup-btn {
+        .calibration-btn {
             background-color: #5a67d8;
             color: white;
             border: none;
@@ -62,13 +62,8 @@
             transition: background-color 0.2s;
         }
         
-        .setup-btn:hover {
+        .calibration-btn:hover {
             background-color: #4c51bf;
-        }
-        
-        .setup-btn:disabled {
-            background-color: #a0aec0;
-            cursor: not-allowed;
         }
         
         .images-container {
@@ -270,10 +265,6 @@
             background-color: rgba(220, 20, 60, 0.9);
         }
         
-        .status-setup {
-            background-color: rgba(255, 140, 0, 0.9);
-        }
-        
         .progress-bar {
             width: 100%;
             height: 4px;
@@ -295,13 +286,12 @@
         let startTime = Date.now();
         let gazePoints = [];
         let isTracking = false;
-        let isSetup = false;
+        let isCalibrated = false;
         let lastGazeUpdate = 0;
-        let setupTimer = null;
         
         function isGazeOnElement(x, y, element) {
             const rect = element.getBoundingClientRect();
-            const margin = 30; // Increased margin for better detection
+            const margin = 25;
             return x >= (rect.left - margin) && 
                    x <= (rect.right + margin) && 
                    y >= (rect.top - margin) && 
@@ -309,59 +299,48 @@
         }
 
         function startEyeTracking() {
-            console.log("Starting eye tracking setup...");
-            updateTrackingStatus('setup');
+            console.log("Starting eye tracking...");
             
-            // Start WebGazer with better settings
-            webgazer.setRegression('ridge')
-                .setTracker('clmtrackr')
-                .setGazeListener((data, timestamp) => {
-                    if (data && isTracking && isSetup) {
-                        const x = data.x;
-                        const y = data.y;
-                        
-                        // Filter out obviously bad data
-                        if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
-                            return;
-                        }
-                        
-                        lastGazeUpdate = Date.now();
-                        updateTrackingStatus('active');
+            document.getElementById('calibration-notice').style.display = 'block';
+            
+            webgazer.setGazeListener((data, timestamp) => {
+                if (data && isTracking && isCalibrated) {
+                    const x = data.x;
+                    const y = data.y;
+                    
+                    lastGazeUpdate = Date.now();
+                    updateTrackingStatus(true);
 
-                        gazePoints.push({x, y, timestamp});
+                    gazePoints.push({x, y, timestamp});
 
-                        const image1 = document.getElementById("image1");
-                        const image2 = document.getElementById("image2");
-                        
-                        // Reset gaze indicators
-                        document.querySelector('#image1-wrapper .gaze-indicator').classList.remove('active');
-                        document.querySelector('#image2-wrapper .gaze-indicator').classList.remove('active');
+                    const image1 = document.getElementById("image1");
+                    const image2 = document.getElementById("image2");
+                    
+                    document.querySelector('#image1-wrapper .gaze-indicator').classList.remove('active');
+                    document.querySelector('#image2-wrapper .gaze-indicator').classList.remove('active');
 
-                        // Check gaze on images
-                        if (isGazeOnElement(x, y, image1)) {
-                            imageTimers.image1 += 0.1;
-                            document.querySelector('#image1-wrapper .gaze-indicator').classList.add('active');
-                            updateStats();
-                        }
-
-                        if (isGazeOnElement(x, y, image2)) {
-                            imageTimers.image2 += 0.1;
-                            document.querySelector('#image2-wrapper .gaze-indicator').classList.add('active');
-                            updateStats();
-                        }
+                    if (isGazeOnElement(x, y, image1)) {
+                        imageTimers.image1 += 0.1;
+                        document.querySelector('#image1-wrapper .gaze-indicator').classList.add('active');
+                        updateStats();
                     }
-                })
-                .begin();
 
-            // Position camera feed
+                    if (isGazeOnElement(x, y, image2)) {
+                        imageTimers.image2 += 0.1;
+                        document.querySelector('#image2-wrapper .gaze-indicator').classList.add('active');
+                        updateStats();
+                    }
+                }
+            }).begin();
+
             setTimeout(() => {
                 const webgazerVideoFeed = document.getElementById("webgazerVideoFeed");
                 if (webgazerVideoFeed) {
                     webgazerVideoFeed.style.position = "fixed";
                     webgazerVideoFeed.style.top = "60px";
                     webgazerVideoFeed.style.right = "15px";
-                    webgazerVideoFeed.style.width = "200px";
-                    webgazerVideoFeed.style.height = "150px";
+                    webgazerVideoFeed.style.width = "180px";
+                    webgazerVideoFeed.style.height = "135px";
                     webgazerVideoFeed.style.zIndex = "1000";
                     webgazerVideoFeed.style.borderRadius = "8px";
                     webgazerVideoFeed.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
@@ -372,76 +351,107 @@
             isTracking = true;
         }
 
-        function quickSetup() {
-            console.log("Starting quick setup...");
+        function performCalibration() {
+            console.log("Starting calibration...");
             
-            document.getElementById('setup-notice').style.display = 'none';
-            document.querySelector('.setup-btn').disabled = true;
-            document.querySelector('.setup-btn').textContent = 'Setting up...';
+            document.getElementById('calibration-notice').style.display = 'none';
             
-            updateTrackingStatus('setup');
+            const calibrationPoints = [
+                {x: '10%', y: '10%'}, {x: '50%', y: '10%'}, {x: '90%', y: '10%'},
+                {x: '10%', y: '50%'}, {x: '50%', y: '50%'}, {x: '90%', y: '50%'},
+                {x: '10%', y: '90%'}, {x: '50%', y: '90%'}, {x: '90%', y: '90%'}
+            ];
             
-            // Simple setup - just wait for WebGazer to initialize properly
-            setTimeout(() => {
-                // Auto-click on a few points to help WebGazer calibrate
-                const points = [
-                    {x: window.innerWidth * 0.2, y: window.innerHeight * 0.2},
-                    {x: window.innerWidth * 0.8, y: window.innerHeight * 0.2},
-                    {x: window.innerWidth * 0.5, y: window.innerHeight * 0.5},
-                    {x: window.innerWidth * 0.2, y: window.innerHeight * 0.8},
-                    {x: window.innerWidth * 0.8, y: window.innerHeight * 0.8}
-                ];
-                
-                let pointIndex = 0;
-                const clickPoints = () => {
-                    if (pointIndex < points.length) {
-                        const point = points[pointIndex];
-                        // Simulate click for WebGazer calibration
-                        if (webgazer.getTracker()) {
-                            webgazer.recordScreenPosition(point.x, point.y, 'click');
+            let currentPoint = 0;
+            const calibrationDiv = document.createElement('div');
+            calibrationDiv.id = 'calibration-overlay';
+            calibrationDiv.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0,0,0,0.85);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 1.3em;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            const pointDiv = document.createElement('div');
+            pointDiv.style.cssText = `
+                position: absolute;
+                width: 18px;
+                height: 18px;
+                background: #e53e3e;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 0 20px rgba(229, 62, 62, 0.8);
+                animation: pulse 1s infinite;
+            `;
+            
+            const instructionDiv = document.createElement('div');
+            instructionDiv.textContent = 'Look at the red dot and click it. Point 1 of 9';
+            instructionDiv.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                z-index: 10001;
+                background: rgba(0,0,0,0.8);
+                padding: 20px;
+                border-radius: 8px;
+            `;
+            
+            calibrationDiv.appendChild(pointDiv);
+            calibrationDiv.appendChild(instructionDiv);
+            document.body.appendChild(calibrationDiv);
+            
+            function showNextPoint() {
+                if (currentPoint < calibrationPoints.length) {
+                    const point = calibrationPoints[currentPoint];
+                    pointDiv.style.left = point.x;
+                    pointDiv.style.top = point.y;
+                    instructionDiv.textContent = `Look at the red dot and click it. Point ${currentPoint + 1} of ${calibrationPoints.length}`;
+                    
+                    pointDiv.onclick = () => {
+                        webgazer.watchListener(pointDiv, true);
+                        currentPoint++;
+                        
+                        if (currentPoint < calibrationPoints.length) {
+                            setTimeout(showNextPoint, 500);
+                        } else {
+                            document.body.removeChild(calibrationDiv);
+                            isCalibrated = true;
+                            updateTrackingStatus(true);
+                            document.querySelector('.submit-btn').disabled = false;
                         }
-                        pointIndex++;
-                        setTimeout(clickPoints, 500);
-                    } else {
-                        // Setup complete
-                        isSetup = true;
-                        updateTrackingStatus('active');
-                        document.querySelector('.submit-btn').disabled = false;
-                        
-                        // Show success message
-                        const setupNotice = document.getElementById('setup-notice');
-                        setupNotice.innerHTML = '<h4>Setup Complete</h4><p>Eye tracking is now active. Look at the images naturally.</p>';
-                        setupNotice.style.backgroundColor = '#d4edda';
-                        setupNotice.style.borderColor = '#c3e6cb';
-                        setupNotice.style.display = 'block';
-                        
-                        setTimeout(() => {
-                            setupNotice.style.display = 'none';
-                        }, 3000);
-                    }
-                };
-                
-                clickPoints();
-            }, 3000);
+                    };
+                } else {
+                    document.body.removeChild(calibrationDiv);
+                    isCalibrated = true;
+                    updateTrackingStatus(true);
+                }
+            }
+            
+            showNextPoint();
         }
 
-        function updateTrackingStatus(status) {
+        function updateTrackingStatus(active) {
             const statusDiv = document.querySelector('.tracking-status');
-            
-            switch(status) {
-                case 'active':
-                    statusDiv.textContent = 'Eye Tracking: ACTIVE';
-                    statusDiv.className = 'tracking-status status-active';
-                    break;
-                case 'setup':
-                    statusDiv.textContent = 'Setting up eye tracking...';
-                    statusDiv.className = 'tracking-status status-setup';
-                    break;
-                case 'inactive':
-                default:
-                    statusDiv.textContent = 'Eye Tracking: INACTIVE';
-                    statusDiv.className = 'tracking-status status-inactive';
-                    break;
+            if (active && isCalibrated) {
+                statusDiv.textContent = 'Eye Tracking: ACTIVE';
+                statusDiv.className = 'tracking-status status-active';
+            } else if (!isCalibrated) {
+                statusDiv.textContent = 'Please Calibrate First';
+                statusDiv.className = 'tracking-status status-inactive';
+            } else {
+                statusDiv.textContent = 'Eye Tracking: INACTIVE';
+                statusDiv.className = 'tracking-status status-inactive';
             }
         }
 
@@ -466,18 +476,17 @@
 
         function stopEyeTracking() {
             isTracking = false;
-            isSetup = false;
             webgazer.end();
-            updateTrackingStatus('inactive');
+            updateTrackingStatus(false);
         }
 
         function submitTimes() {
-            if (!isSetup) {
-                alert('Please complete the eye tracking setup first.');
+            if (!isCalibrated) {
+                alert('Please calibrate the eye tracking first.');
                 return;
             }
             
-            if (imageTimers.image1 < 1 && imageTimers.image2 < 1) {
+            if (imageTimers.image1 < 0.5 && imageTimers.image2 < 0.5) {
                 alert('Please look at the images for a bit longer before submitting.');
                 return;
             }
@@ -547,28 +556,22 @@
                   alert('An error occurred. Please try again.');
                   document.querySelector('.submit-btn').disabled = false;
                   document.querySelector('.loading').style.display = 'none';
-                  isSetup = true;
-                  updateTrackingStatus('active');
               });
         }
 
-        // Update stats every second
         setInterval(updateStats, 1000);
         
-        // Check tracking status periodically
         setInterval(() => {
-            if (Date.now() - lastGazeUpdate > 5000 && isTracking && isSetup) {
-                updateTrackingStatus('inactive');
+            if (Date.now() - lastGazeUpdate > 3000 && isTracking) {
+                updateTrackingStatus(false);
             }
-        }, 2000);
+        }, 1000);
 
-        // Start everything when page loads
         window.onload = () => {
             startEyeTracking();
-            updateTrackingStatus('inactive');
+            updateTrackingStatus(false);
         };
 
-        // Clean up when leaving page
         window.onbeforeunload = () => {
             stopEyeTracking();
         };
@@ -582,22 +585,22 @@
         
         <div class="round-info">
             <h3>Eye Tracking Assessment</h3>
-            <p>Look at the images naturally. The system will analyze your gaze patterns.</p>
+            <p>Look at the images naturally. The system will analyze your gaze patterns to provide insights.</p>
         </div>
         
-        <div id="setup-notice" class="setup-notice">
-            <h4>Eye Tracking Setup</h4>
-            <p>Allow camera access and click the setup button. The system will automatically configure itself.</p>
-            <button class="setup-btn" onclick="quickSetup()">Quick Setup</button>
+        <div id="calibration-notice" class="calibration-notice">
+            <h4>Eye Tracking Calibration Required</h4>
+            <p>For accurate results, please calibrate the eye tracking system first.</p>
+            <button class="calibration-btn" onclick="performCalibration()">Start Calibration</button>
         </div>
 
         <div class="instructions">
             <h4>Instructions:</h4>
             <ul>
-                <li>Allow camera access when prompted</li>
-                <li>Click "Quick Setup" for automatic configuration</li>
-                <li>Look at both images naturally after setup</li>
-                <li>Small red dots will show where you're looking</li>
+                <li>Click "Start Calibration" and follow the red dots</li>
+                <li>Keep your head steady and face the screen</li>
+                <li>Look at both images naturally after calibration</li>
+                <li>Small red dots will indicate where you're looking</li>
             </ul>
         </div>
 
@@ -607,12 +610,12 @@
 
         <div class="images-container">
             <div id="image1-wrapper" class="image-wrapper">
-                <img id="image1" src="static/pic5.jpg" alt="Image 1">
+                <img id="image1" src="/static/pic5.jpg" alt="Image 1">
                 <div class="image-label">Image A</div>
                 <div class="gaze-indicator"></div>
             </div>
             <div id="image2-wrapper" class="image-wrapper">
-                <img id="image2" src="static/pic3.jpg" alt="Image 2">
+                <img id="image2" src="/static/pic3.jpg" alt="Image 2">
                 <div class="image-label">Image B</div>
                 <div class="gaze-indicator"></div>
             </div>
@@ -643,7 +646,7 @@
 
         <div class="controls">
             <button class="submit-btn" onclick="submitTimes()" disabled>Analyze Gaze Patterns</button>
-            <p style="color: #718096; margin-top: 10px; font-size: 0.9em;">Complete setup to activate button</p>
+            <p style="color: #718096; margin-top: 10px; font-size: 0.9em;">Button will activate after calibration</p>
         </div>
 
         <div class="loading">
