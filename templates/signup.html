@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Autism Detection</title>
+    <title>Sign Up - Autism Detection</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
         /* Reset */
@@ -16,9 +16,8 @@
         /* Body Styling */
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: #f1f1f1;
-            margin: 0;
-            padding: 0;
+            color: #333;
+            background: #f3f4f6;
         }
 
         /* Navbar */
@@ -53,10 +52,19 @@
 
         /* Hero Section */
         .hero-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 80px 20px;
             text-align: center;
-            padding: 100px;
-            background-color: #1abc9c;
-            color: white;
+            background: linear-gradient(to right, #1abc9c, #16a085);
+            color: #fff;
+        }
+
+        .hero-section h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 20px;
         }
 
         /* Flash Messages */
@@ -82,8 +90,8 @@
             color: white;
         }
 
-        /* Login Form Styling */
-        .login-form-container {
+        /* Sign-Up Form */
+        .signup-form-container {
             max-width: 400px;
             margin: 40px auto;
             background-color: white;
@@ -92,31 +100,25 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
         }
 
-        .login-form-container label {
+        .signup-form-container label {
             font-size: 1rem;
             color: #333;
             margin-bottom: 8px;
             display: block;
         }
 
-        .login-form-container input[type="text"],
-        .login-form-container input[type="password"],
-        .login-form-container input[type="email"] {
+        .signup-form-container input[type="text"],
+        .signup-form-container input[type="password"],
+        .signup-form-container input[type="email"] {
             width: 100%;
             padding: 12px;
             margin: 8px 0 16px;
             border: 1px solid #ccc;
             border-radius: 5px;
             font-size: 1rem;
-            transition: border-color 0.3s;
         }
 
-        .login-form-container input:focus {
-            border-color: #1abc9c;
-            outline: none;
-        }
-
-        .login-form-container button {
+        .signup-form-container button {
             width: 100%;
             padding: 12px;
             background-color: #1abc9c;
@@ -129,24 +131,9 @@
             transition: background-color 0.3s, transform 0.3s;
         }
 
-        .login-form-container button:hover {
+        .signup-form-container button:hover {
             background-color: #16a085;
             transform: scale(1.05);
-        }
-
-        .login-form-container p {
-            margin-top: 16px;
-            font-size: 0.9rem;
-        }
-
-        .login-form-container p a {
-            color: #1abc9c;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        .login-form-container p a:hover {
-            color: #16a085;
         }
 
         /* Footer */
@@ -156,9 +143,6 @@
             background-color: #2c3e50;
             color: #ecf0f1;
             font-size: 0.9rem;
-            position: fixed;
-            bottom: 0;
-            width: 100%;
         }
     </style>
 </head>
@@ -166,17 +150,16 @@
     <!-- Navbar -->
     <div class="navbar">
         <ul>
-            <li><a href="#home">Home</a></li>
-            <li><a href="#what-we-offer">What We Offer</a></li>
-            <li><a href="#what-is-autism">What is Autism?</a></li>
-            <li><a href="#start-test">Start Test</a></li>
-            <li><a href="#contact">Contact Us</a></li>
+            <li><a href="{{ url_for('home') }}">Home</a></li>
+            <li><a href="{{ url_for('home') }}#what-we-offer">What We Offer</a></li>
+            <li><a href="{{ url_for('home') }}#what-is-autism">What is Autism?</a></li>
+            <li><a href="{{ url_for('autism') }}">Start Test</a></li>
         </ul>
     </div>
 
     <!-- Hero Section -->
     <header class="hero-section">
-        <h1>Login</h1>
+        <h1>Sign Up</h1>
     </header>
 
     <!-- Flash Messages -->
@@ -190,25 +173,32 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Login Form -->
-    <div class="login-form-container">
-        <form action="{{ url_for('login') }}" method="POST">
+    <!-- Sign-Up Form -->
+    <div class="signup-form-container">
+        <form action="{{ url_for('signup') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if form.errors %}
+                <ul class="flash-messages">
+                    {% for field_errors in form.errors.values() %}
+                        {% for error in field_errors %}
+                            <li class="error">{{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            {% endif %}
 
             <label for="username">Username:</label>
-            <input type="text" name="username" required>
+            <input type="text" id="username" name="username" required>
 
             <label for="email">Email:</label>
-            <input type="email" name="email" required>
+            <input type="email" id="email" name="email" required>
 
             <label for="password">Password:</label>
-            <input type="password" name="password" required>
+            <input type="password" id="password" name="password" required>
 
-            <button type="submit">Login</button>
+            <button type="submit">Sign Up</button>
         </form>
-
-        <p><a href="{{ url_for('forgot_password') }}">Forgot Password?</a></p>
-        <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a></p>
+        <p>Already have an account? <a href="{{ url_for('login') }}">Log in here</a></p>
     </div>
 
     <!-- Footer -->

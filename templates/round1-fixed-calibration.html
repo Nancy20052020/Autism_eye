@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Round 2 - Autism Detection</title>
+    <title>Round 1 - Autism Detection</title>
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     <style>
         body {
@@ -39,6 +39,36 @@
             background-color: #f1f3f4;
             border-radius: 8px;
             border-left: 4px solid #5a67d8;
+        }
+        
+        .setup-notice {
+            background-color: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .setup-btn {
+            background-color: #5a67d8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+        
+        .setup-btn:hover {
+            background-color: #4c51bf;
+        }
+        
+        .setup-btn:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
         }
         
         .images-container {
@@ -219,17 +249,6 @@
             100% { transform: rotate(360deg); }
         }
         
-        .round-badge {
-            display: inline-block;
-            background-color: #5a67d8;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 16px;
-            font-weight: 500;
-            margin-bottom: 20px;
-            font-size: 0.9em;
-        }
-        
         .tracking-status {
             position: fixed;
             top: 15px;
@@ -251,6 +270,10 @@
             background-color: rgba(220, 20, 60, 0.9);
         }
         
+        .status-setup {
+            background-color: rgba(255, 140, 0, 0.9);
+        }
+        
         .progress-bar {
             width: 100%;
             height: 4px;
@@ -263,7 +286,7 @@
         .progress-fill {
             height: 100%;
             background-color: #5a67d8;
-            width: 100%;
+            width: 0%;
             transition: width 0.3s ease;
         }
     </style>
@@ -272,7 +295,9 @@
         let startTime = Date.now();
         let gazePoints = [];
         let isTracking = false;
+        let isSetup = false;
         let lastGazeUpdate = 0;
+        let setupTimer = null;
         
         function isGazeOnElement(x, y, element) {
             const rect = element.getBoundingClientRect();
@@ -284,22 +309,24 @@
         }
 
         function startEyeTracking() {
-            console.log("Starting Round 2 eye tracking...");
+            console.log("Starting eye tracking setup...");
+            updateTrackingStatus('setup');
             
+            // Start WebGazer with better settings
             webgazer.setRegression('ridge')
                 .setTracker('clmtrackr')
                 .setGazeListener((data, timestamp) => {
-                    if (data && isTracking) {
+                    if (data && isTracking && isSetup) {
                         const x = data.x;
                         const y = data.y;
                         
-                        // Filter out bad data
+                        // Filter out obviously bad data
                         if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
                             return;
                         }
                         
                         lastGazeUpdate = Date.now();
-                        updateTrackingStatus(true);
+                        updateTrackingStatus('active');
 
                         gazePoints.push({x, y, timestamp});
 
@@ -326,6 +353,7 @@
                 })
                 .begin();
 
+            // Position camera feed
             setTimeout(() => {
                 const webgazerVideoFeed = document.getElementById("webgazerVideoFeed");
                 if (webgazerVideoFeed) {
@@ -339,40 +367,81 @@
                     webgazerVideoFeed.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
                     webgazerVideoFeed.style.border = "2px solid #5a67d8";
                 }
-                
-                // Auto-enable tracking for round 2 (no setup needed)
-                isTracking = true;
-                updateTrackingStatus(true);
-                document.querySelector('.submit-btn').disabled = false;
-                
-                // Auto-calibrate with some points
-                setTimeout(() => {
-                    const points = [
-                        {x: window.innerWidth * 0.3, y: window.innerHeight * 0.3},
-                        {x: window.innerWidth * 0.7, y: window.innerHeight * 0.3},
-                        {x: window.innerWidth * 0.5, y: window.innerHeight * 0.6}
-                    ];
-                    
-                    points.forEach((point, index) => {
-                        setTimeout(() => {
-                            if (webgazer.getTracker()) {
-                                webgazer.recordScreenPosition(point.x, point.y, 'click');
-                            }
-                        }, index * 500);
-                    });
-                }, 1000);
-                
             }, 2000);
+
+            isTracking = true;
         }
 
-        function updateTrackingStatus(active) {
+        function quickSetup() {
+            console.log("Starting quick setup...");
+            
+            document.getElementById('setup-notice').style.display = 'none';
+            document.querySelector('.setup-btn').disabled = true;
+            document.querySelector('.setup-btn').textContent = 'Setting up...';
+            
+            updateTrackingStatus('setup');
+            
+            // Simple setup - just wait for WebGazer to initialize properly
+            setTimeout(() => {
+                // Auto-click on a few points to help WebGazer calibrate
+                const points = [
+                    {x: window.innerWidth * 0.2, y: window.innerHeight * 0.2},
+                    {x: window.innerWidth * 0.8, y: window.innerHeight * 0.2},
+                    {x: window.innerWidth * 0.5, y: window.innerHeight * 0.5},
+                    {x: window.innerWidth * 0.2, y: window.innerHeight * 0.8},
+                    {x: window.innerWidth * 0.8, y: window.innerHeight * 0.8}
+                ];
+                
+                let pointIndex = 0;
+                const clickPoints = () => {
+                    if (pointIndex < points.length) {
+                        const point = points[pointIndex];
+                        // Simulate click for WebGazer calibration
+                        if (webgazer.getTracker()) {
+                            webgazer.recordScreenPosition(point.x, point.y, 'click');
+                        }
+                        pointIndex++;
+                        setTimeout(clickPoints, 500);
+                    } else {
+                        // Setup complete
+                        isSetup = true;
+                        updateTrackingStatus('active');
+                        document.querySelector('.submit-btn').disabled = false;
+                        
+                        // Show success message
+                        const setupNotice = document.getElementById('setup-notice');
+                        setupNotice.innerHTML = '<h4>Setup Complete</h4><p>Eye tracking is now active. Look at the images naturally.</p>';
+                        setupNotice.style.backgroundColor = '#d4edda';
+                        setupNotice.style.borderColor = '#c3e6cb';
+                        setupNotice.style.display = 'block';
+                        
+                        setTimeout(() => {
+                            setupNotice.style.display = 'none';
+                        }, 3000);
+                    }
+                };
+                
+                clickPoints();
+            }, 3000);
+        }
+
+        function updateTrackingStatus(status) {
             const statusDiv = document.querySelector('.tracking-status');
-            if (active && isTracking) {
-                statusDiv.textContent = 'Eye Tracking: ACTIVE (Round 2)';
-                statusDiv.className = 'tracking-status status-active';
-            } else {
-                statusDiv.textContent = 'Eye Tracking: INACTIVE';
-                statusDiv.className = 'tracking-status status-inactive';
+            
+            switch(status) {
+                case 'active':
+                    statusDiv.textContent = 'Eye Tracking: ACTIVE';
+                    statusDiv.className = 'tracking-status status-active';
+                    break;
+                case 'setup':
+                    statusDiv.textContent = 'Setting up eye tracking...';
+                    statusDiv.className = 'tracking-status status-setup';
+                    break;
+                case 'inactive':
+                default:
+                    statusDiv.textContent = 'Eye Tracking: INACTIVE';
+                    statusDiv.className = 'tracking-status status-inactive';
+                    break;
             }
         }
 
@@ -390,15 +459,24 @@
             
             const elapsedTime = (Date.now() - startTime) / 1000;
             document.getElementById('elapsed-time').textContent = elapsedTime.toFixed(1) + 's';
+            
+            const progress = Math.min((elapsedTime / 60) * 100, 100);
+            document.querySelector('.progress-fill').style.width = progress + '%';
         }
 
         function stopEyeTracking() {
             isTracking = false;
+            isSetup = false;
             webgazer.end();
-            updateTrackingStatus(false);
+            updateTrackingStatus('inactive');
         }
 
         function submitTimes() {
+            if (!isSetup) {
+                alert('Please complete the eye tracking setup first.');
+                return;
+            }
+            
             if (imageTimers.image1 < 1 && imageTimers.image2 < 1) {
                 alert('Please look at the images for a bit longer before submitting.');
                 return;
@@ -414,7 +492,7 @@
             const avgGazeY = totalGazePoints > 0 ? gazePoints.reduce((sum, p) => sum + p.y, 0) / totalGazePoints : 0;
             
             const requestData = {
-                round: "round2",
+                round: "round1",
                 image1_time: parseFloat(imageTimers.image1.toFixed(2)),
                 image2_time: parseFloat(imageTimers.image2.toFixed(2)),
                 total_gaze_points: totalGazePoints,
@@ -433,7 +511,7 @@
                   
                   const metricsDiv = document.getElementById('metrics-display');
                   metricsDiv.innerHTML = `
-                      <h3>Round 2 Analysis Complete</h3>
+                      <h3>Round 1 Analysis Complete</h3>
                       <div class="stats-container">
                           <div class="stat-card">
                               <div class="stat-value">${data.result}</div>
@@ -455,14 +533,13 @@
                       <p><strong>AI Model:</strong> ${data.model_used ? 'Deep Learning Model' : 'Rule-based System'}</p>
                       <p><strong>Processing Time:</strong> ${data.processing_time}s</p>
                       <div class="instructions">
-                          <h4>Assessment Complete</h4>
-                          <p>Both rounds completed. Generating comprehensive final results...</p>
+                          <p>Round 1 completed successfully. Proceeding to Round 2...</p>
                       </div>
                   `;
                   metricsDiv.style.display = 'block';
                   
                   setTimeout(() => {
-                      window.location.href = '/result';
+                      window.location.href = '/round2';
                   }, 4000);
               })
               .catch(error => {
@@ -470,46 +547,57 @@
                   alert('An error occurred. Please try again.');
                   document.querySelector('.submit-btn').disabled = false;
                   document.querySelector('.loading').style.display = 'none';
+                  isSetup = true;
+                  updateTrackingStatus('active');
               });
         }
 
+        // Update stats every second
         setInterval(updateStats, 1000);
         
+        // Check tracking status periodically
         setInterval(() => {
-            if (Date.now() - lastGazeUpdate > 5000 && isTracking) {
-                updateTrackingStatus(false);
+            if (Date.now() - lastGazeUpdate > 5000 && isTracking && isSetup) {
+                updateTrackingStatus('inactive');
             }
         }, 2000);
 
+        // Start everything when page loads
         window.onload = () => {
             startEyeTracking();
-            updateTrackingStatus(false);
+            updateTrackingStatus('inactive');
         };
 
+        // Clean up when leaving page
         window.onbeforeunload = () => {
             stopEyeTracking();
         };
     </script>
 </head>
 <body>
-    <div class="tracking-status">Initializing Round 2...</div>
+    <div class="tracking-status">Initializing...</div>
     
     <div class="container">
-        <div class="round-badge">Round 2 of 2</div>
-        <h1>Autism Detection - Round 2</h1>
+        <h1>Autism Detection - Round 1</h1>
         
         <div class="round-info">
-            <h3>Final Eye Tracking Assessment</h3>
-            <p>Eye tracking will start automatically. No additional setup required.</p>
+            <h3>Eye Tracking Assessment</h3>
+            <p>Look at the images naturally. The system will analyze your gaze patterns.</p>
+        </div>
+        
+        <div id="setup-notice" class="setup-notice">
+            <h4>Eye Tracking Setup</h4>
+            <p>Allow camera access and click the setup button. The system will automatically configure itself.</p>
+            <button class="setup-btn" onclick="quickSetup()">Quick Setup</button>
         </div>
 
         <div class="instructions">
             <h4>Instructions:</h4>
             <ul>
-                <li>Eye tracking will resume automatically from Round 1</li>
-                <li>Look at both images naturally</li>
-                <li>Small red dots will indicate where you're looking</li>
-                <li>This is the final round - take your time</li>
+                <li>Allow camera access when prompted</li>
+                <li>Click "Quick Setup" for automatic configuration</li>
+                <li>Look at both images naturally after setup</li>
+                <li>Small red dots will show where you're looking</li>
             </ul>
         </div>
 
@@ -519,12 +607,12 @@
 
         <div class="images-container">
             <div id="image1-wrapper" class="image-wrapper">
-                <img id="image1" src="static/pic6.jpg" alt="Image 1">
+                <img id="image1" src="/static/pic5.jpg" alt="Image 1">
                 <div class="image-label">Image A</div>
                 <div class="gaze-indicator"></div>
             </div>
             <div id="image2-wrapper" class="image-wrapper">
-                <img id="image2" src="static/pic4.jpg" alt="Image 2">
+                <img id="image2" src="/static/pic3.jpg" alt="Image 2">
                 <div class="image-label">Image B</div>
                 <div class="gaze-indicator"></div>
             </div>
@@ -554,13 +642,13 @@
         </div>
 
         <div class="controls">
-            <button class="submit-btn" onclick="submitTimes()" disabled>Complete Assessment</button>
-            <p style="color: #718096; margin-top: 10px; font-size: 0.9em;">Button will activate when tracking starts</p>
+            <button class="submit-btn" onclick="submitTimes()" disabled>Analyze Gaze Patterns</button>
+            <p style="color: #718096; margin-top: 10px; font-size: 0.9em;">Complete setup to activate button</p>
         </div>
 
         <div class="loading">
             <div class="spinner"></div>
-            <p>Completing final analysis...</p>
+            <p>Analyzing gaze patterns...</p>
         </div>
 
         <div id="metrics-display" class="metrics-display">

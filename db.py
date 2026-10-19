@@ -1,6 +1,8 @@
-# db.py
 import mysql.connector
+from mysql.connector import Error
+
 from config import db_config
+
 
 def get_db_connection():
     connection = None
@@ -15,6 +17,8 @@ def get_db_connection():
 
 def signup_user(username, email, password):
     conn = get_db_connection()
+    if conn is None:
+        return None
     cursor = conn.cursor()
     try:
         query = "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)"
@@ -28,8 +32,11 @@ def signup_user(username, email, password):
         cursor.close()
         conn.close()
 
+
 def login_user(username, password):
     conn = get_db_connection()
+    if conn is None:
+        return None
     cursor = conn.cursor(dictionary=True)
     try:
         query = "SELECT * FROM users WHERE username = %s AND password = %s"
